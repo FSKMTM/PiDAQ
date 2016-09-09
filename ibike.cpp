@@ -287,69 +287,57 @@ int main(int argc, char **argv) {
 		// Main DAQ loop
 		bcm2835_gpio_write(STOPLED, HIGH);
 		bcm2835_gpio_write(STARTLED, LOW);
-
-		if (!ftime(&timer_msec)) {
-			timestamp_msec = ((long long int) timer_msec.time) * 1000ll + (long long int) timer_msec.millitm-inittime_msec;
-		}
-		else {
-			timestamp_msec = -1;
-		}
-
 		while(bcm2835_gpio_lev(STOPSWITCH) == 1 && keepRunning) {
+			if (!ftime(&timer_msec)) {
+				timestamp_msec = ((long long int) timer_msec.time) * 1000ll + (long long int) timer_msec.millitm-inittime_msec;
+			}
+			else {
+				timestamp_msec = -1;
+			}
 
-			next_timestamp_msec = timestamp_msec + sampling_interval;
+			if (timestamp_msec >= next_timestamp_msec) { // don't write if interval not reached yet
 
-			while (timestamp_msec < next_timestamp_msec) { // wait until next time interval
-				if (!ftime(&timer_msec)) {
-					timestamp_msec = ((long long int) timer_msec.time) * 1000ll + (long long int) timer_msec.millitm-inittime_msec;
+				// Calculate speed and distance
+				sensVal = bcm2835_gpio_lev(GPIOPIN);
+
+				if (sensStr != sensVal && sensVal == 0) {
+					fade = 0;
+					revs++;
+					lastInt = timestamp_msec - lastFall;
+					lastFall = timestamp_msec;
 				}
-				else {
-					timestamp_msec = -1;
+
+				sensStr = sensVal;
+				dist = revs * WHEELCIRC;
+
+				pSpeed +=  1000 * WHEELCIRC / (float)lastInt; //partial speed
+
+				if (smooth == 100) {
+					smooth = 0;
+					speed = pSpeed / 100; //average speed over 100 samples
+					pSpeed = 0;
 				}
 
-				//printf("%llu\t%llu\n", timestamp_msec, next_timestamp_msec); //debuk
-				usleep(5);
+				fade++;
+				smooth++;
+
+				if (fade == 4000) { //if there is no rev in 4000 cycles, set speed to 0
+					lastInt = 160000000;
+					fade = 0;
+				}
+
+				// Write data to file
+				fprintf(fi, "%llu", timestamp_msec);
+				for (a2dChannel=0; a2dChannel<=noChannels; a2dChannel++) {
+					adcval = readadc(a2dChannel);
+					VIn = ((double) (adcval/4096.0) * 5.0 - offset[a2dChannel]) * MULTIPLIER[a2dChannel];
+					fprintf(fi,"\t%1.3f",VIn);
+				}
+				fprintf(fi, "\t%1.3f\t%1.3f\n", speed, dist);
+				bcm2835_delay(1);
+				//printf("%lu\t%1.3f\t%1.3f\n", lastInt, dist, speed); //debuk
+				next_timestamp_msec = timestamp_msec + sampling_interval;
 			}
-
-			// Calculate speed and distance
-			sensVal = bcm2835_gpio_lev(GPIOPIN);
-
-			if (sensStr != sensVal && sensVal == 0) {
-				fade = 0;
-				revs++;
-				lastInt = timestamp_msec - lastFall;
-				lastFall = timestamp_msec;
-			}
-
-			sensStr = sensVal;
-			dist = revs * WHEELCIRC;
-
-			pSpeed +=  1000 * WHEELCIRC / (float)lastInt; //partial speed
-
-			if (smooth == 100) {
-				smooth = 0;
-				speed = pSpeed / 100; //average speed over 100 samples
-				pSpeed = 0;
-			}
-
-			fade++;
-			smooth++;
-
-			if (fade == 4000) { //if there is no rev in 4000 cycles, set speed to 0
-				lastInt = 160000000;
-				fade = 0;
-			}
-
-			// Write data to file
-			fprintf(fi, "%llu", timestamp_msec);
-			for (a2dChannel=0; a2dChannel<=noChannels; a2dChannel++) {
-				adcval = readadc(a2dChannel);
-				VIn = ((double) (adcval/4096.0) * 5.0 - offset[a2dChannel]) * MULTIPLIER[a2dChannel];
-				fprintf(fi,"\t%1.3f",VIn);
-			}
-			fprintf(fi, "\t%1.3f\t%1.3f\n", speed, dist);
-			//bcm2835_delay(1);
-			//printf("%lu\t%1.3f\t%1.3f\n", lastInt, dist, speed); //debuk
 		}
 
 		// Close file and set LEDs
