@@ -287,14 +287,29 @@ int main(int argc, char **argv) {
 		// Main DAQ loop
 		bcm2835_gpio_write(STOPLED, HIGH);
 		bcm2835_gpio_write(STARTLED, LOW);
-		while(bcm2835_gpio_lev(STOPSWITCH) == 1 && keepRunning) {
-			if (!ftime(&timer_msec)) {
-				timestamp_msec = ((long long int) timer_msec.time) * 1000ll + (long long int) timer_msec.millitm-inittime_msec;
-			}
-			else {
-				timestamp_msec = -1;
-			}
 
+		if (!ftime(&timer_msec)) {
+			timestamp_msec = ((long long int) timer_msec.time) * 1000ll + (long long int) timer_msec.millitm-inittime_msec;
+		}
+		else {
+			timestamp_msec = -1;
+		}
+
+		while(bcm2835_gpio_lev(STOPSWITCH) == 1 && keepRunning) {
+
+			next_timestamp_msec = timestamp_msec + sampling_interval;
+
+			while (timestamp_msec < next_timestamp_msec) { // wait until next time interval
+				if (!ftime(&timer_msec)) {
+					timestamp_msec = ((long long int) timer_msec.time) * 1000ll + (long long int) timer_msec.millitm-inittime_msec;
+				}
+				else {
+					timestamp_msec = -1;
+				}
+
+				//printf("%llu\t%llu\n", timestamp_msec, next_timestamp_msec); //debuk
+				usleep(5);
+			}
 
 			// Calculate speed and distance
 			sensVal = bcm2835_gpio_lev(GPIOPIN);
@@ -326,18 +341,15 @@ int main(int argc, char **argv) {
 			}
 
 			// Write data to file
-			if (timestamp_msec >= next_timestamp_msec) { // don't write if interval not reached yet
-				fprintf(fi, "%llu", timestamp_msec);
-				for (a2dChannel=0; a2dChannel<=noChannels; a2dChannel++) {
-					adcval = readadc(a2dChannel);
-					VIn = ((double) (adcval/4096.0) * 5.0 - offset[a2dChannel]) * MULTIPLIER[a2dChannel];
-					fprintf(fi,"\t%1.3f",VIn);
-				}
-				fprintf(fi, "\t%1.3f\t%1.3f\n", speed, dist);
-				bcm2835_delay(1);
-				//printf("%lu\t%1.3f\t%1.3f\n", lastInt, dist, speed); //debuk
-				next_timestamp_msec = timestamp_msec + sampling_interval;
+			fprintf(fi, "%llu", timestamp_msec);
+			for (a2dChannel=0; a2dChannel<=noChannels; a2dChannel++) {
+				adcval = readadc(a2dChannel);
+				VIn = ((double) (adcval/4096.0) * 5.0 - offset[a2dChannel]) * MULTIPLIER[a2dChannel];
+				fprintf(fi,"\t%1.3f",VIn);
 			}
+			fprintf(fi, "\t%1.3f\t%1.3f\n", speed, dist);
+			//bcm2835_delay(1);
+			//printf("%lu\t%1.3f\t%1.3f\n", lastInt, dist, speed); //debuk
 		}
 
 		// Close file and set LEDs
