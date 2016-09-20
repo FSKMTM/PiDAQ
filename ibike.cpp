@@ -31,12 +31,13 @@ const float WHEELCIRC = 2.255; // wheel circumference in m for speed calculation
 const float MULTIPLIER[8] = {12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5}; // calibration multipliers for individual channels
 //const float MULTIPLIER[8] = {1, 1, 1, 1, 1, 1, 1, 1}; // calibration multipliers for individual channels
 const int CALSAMPLES = 2000; // number of samples for calibration average
+const int sampling_interval = 2; //length of sampling interval in ms
+const int fade_limit = 2000; //number of intervals before speed is set to 0
 
 float VIn;
 int a2dChannel;
 int adcval;
 float offset[7];
-int sampling_interval = 2; //length of sampling interval in ms
 
 int sensVal = 0;
 int sensStr = 1;
@@ -242,7 +243,7 @@ int main(int argc, char **argv) {
 		time (&rawtime);
 		timeinfo = localtime (&rawtime);
 		char *infname = inbuffer;
-		strftime (outbuffer,80,"./ib_%Y%m%d-%H%M%S.txt",timeinfo);
+		strftime (outbuffer,80,"ib_%Y%m%d-%H%M%S.txt",timeinfo);
 		char *outfname = outbuffer;
 
 
@@ -258,7 +259,7 @@ int main(int argc, char **argv) {
 		// Write file header
 		time_t now;
 		time(&now);
-		fprintf (fi, "File %s started on %s\n", infname, ctime(&now));
+		fprintf (fi, "File %s started on %s\n", outfname, ctime(&now));
 		fprintf (fi, "time [ms]");
 		for (int i=0; i<=noChannels; i+=1) {
 			fprintf(fi, "\tACH%d", i);
@@ -321,7 +322,7 @@ int main(int argc, char **argv) {
 				fade++;
 				smooth++;
 
-				if (fade == 4000) { //if there is no rev in 4000 cycles, set speed to 0
+				if (fade == fade_limit) { //if there is no rev in fadeLimit cycles, set speed to 0
 					lastInt = 160000000;
 					fade = 0;
 				}
