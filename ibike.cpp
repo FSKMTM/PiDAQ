@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
 	// Print time for log
 	time_t now;
 	time(&now);
-	printf ("%s started on %s\n", argv[0], ctime(&now));
+	printf ("\n%s started on %s\n", argv[0], ctime(&now));
 
 	// Exit if both buttons are pressed
 	if (bcm2835_gpio_lev(STARTSWITCH) == 0 && bcm2835_gpio_lev(STOPSWITCH) == 0) {
