@@ -22,14 +22,17 @@ const int STARTSWITCH = 18; // GPIO pin for start switch
 const int STARTLED = 23; // GPIO pin for start LED (white)
 const int STOPSWITCH = 24; // GPIO pin for stop switch
 const int STOPLED = 25; // GPIO pin for stop LED (red)
-const float WHEELCIRC = 2.255; // wheel circumference in m for speed calculation
+const float WHEELCIRC = 2.069; // wheel circumference in m for speed calculation
 //const float WHEELCIRC = 2.027; // MTB 47-559
 //const float WHEELCIRC = 2.250; // marathon+ tour 42-622
 //const float WHEELCIRC = 2.255; // marathon+ 47-622
 //const float WHEELCIRC = 1.491; // pony 47-406
+//const float WHEELCIRC = 2.076; // lugano 20-622
+//const float WHEELCIRC = 2.056; // marathon winter 50-559
 
-const float MULTIPLIER[8] = {12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5}; // calibration multipliers for individual channels
-//const float MULTIPLIER[8] = {1, 1, 1, 1, 1, 1, 1, 1}; // calibration multipliers for individual channels
+const float MULTIPLIER[8] = {12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 120, 12.5}; // calibration multipliers for individual channels (acc + wire on CH6)
+//const float MULTIPLIER[8] = {12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5}; // calibration multipliers for individual channels (all acc)
+//const float MULTIPLIER[8] = {1, 1, 1, 1, 1, 1, 1, 1}; // calibration multipliers for individual channels (raw voltage for debugging)
 const int CALSAMPLES = 2000; // number of samples for calibration average
 const int sampling_interval = 2; //length of sampling interval in ms
 const int fade_limit = 2000; //number of intervals before speed is set to 0
@@ -50,16 +53,13 @@ unsigned long lastInt = 160000000;
 unsigned long fade = 0;
 unsigned long smooth = 0;
 
-
 // Signal handling
 static bool keepRunning = true;
-
 
 void intHandler(int sig_num) {
 	signal(SIGINT, intHandler);
 	keepRunning = false;
 }
-
 
 void checkForPoweroff() {
 	int timeout=0;
@@ -94,7 +94,6 @@ void checkForPoweroff() {
 	bcm2835_gpio_write(STOPLED, LOW);
 	bcm2835_gpio_write(STARTLED, LOW);
 }
-
 
 int readadc(char adc_channel);
 
@@ -144,7 +143,6 @@ int main(int argc, char **argv) {
 	bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_128); //won't work under 128
 	bcm2835_spi_chipSelect(BCM2835_SPI_CS0);
 	bcm2835_spi_setChipSelectPolarity(BCM2835_SPI_CS0, LOW);
-
 
 	// Turn off both LEDs for now
 	bcm2835_gpio_write(STOPLED, LOW);
@@ -203,7 +201,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-
 	// Main loop
 	while (keepRunning) {
 
@@ -245,7 +242,6 @@ int main(int argc, char **argv) {
 		char *infname = inbuffer;
 		strftime (outbuffer,80,"ib_%Y%m%d-%H%M%S.txt",timeinfo);
 		char *outfname = outbuffer;
-
 
 		// Open file for writing
 		FILE *fi = fopen(infname, "w");
