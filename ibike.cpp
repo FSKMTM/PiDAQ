@@ -92,7 +92,7 @@ void checkForPoweroff() {
 	printf("Poweroff cancelled.\n");
 	fflush(stdout);
 	bcm2835_gpio_write(STOPLED, LOW);
-	bcm2835_gpio_write(STARTLED, LOW);
+	bcm2835_gpio_write(STARTLED, HIGH);
 }
 
 int readadc(char adc_channel);
